@@ -18,7 +18,8 @@ async def _get(endpoint, params):
         return r.json()
 
 def _err(e):
-    if isinstance(e, httpx.HTTPStatusError): return f"Error: API status {e.response.status_code}"
+    if isinstance(e, httpx.HTTPStatusError):
+        return f"Error: API status {e.response.status_code}"
     return f"Error: {e}"
 
 def _fmt(w):
@@ -27,7 +28,7 @@ def _fmt(w):
 
 class SW(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    query: str = Field(..., description="Search query")
+    query: str = Field(..., description="Search query e.g. protest movements Africa")
     year_from: Optional[int] = Field(default=None, ge=1000, le=2100, description="Start year")
     year_to: Optional[int] = Field(default=None, ge=1000, le=2100, description="End year")
     work_type: Optional[str] = Field(default=None, description="article book preprint")
@@ -78,17 +79,8 @@ async def openalex_get_work(params: GW) -> str:
     try:
         wid = params.work_id if params.work_id.startswith("W") else f"W{params.work_id}"
         d = await _get(f"works/{wid}", {})
-        inv = d.get("abstract_inverted_index") or {}
-        abstract = ""
-        if inv:
-            mp = max((p for ps in inv.values() for p in ps), default=0)
-            words = [""]*(mp+1)
-            for word,ps in inv.items():
-                for p in ps:
-                    if p<=mp: words[p]=word
-            abstract = " ".join(w for w in words if w)
         src = (d.get("primary_location") or {}).get("source") or {}
-        return json.dumps({"title": d.get("title",""), "abstract": abstract[:1500] or "(not available)", "year": d.get("publication_year"), "source": src.get("display_name",""), "doi": d.get("doi",""), "cited_by_count": d.get("cited_by_count",0)}, indent=2)
+        return json.dumps({"title": d.get("title",""), "year": d.get("publication_year"), "source": src.get("display_name",""), "doi": d.get("doi",""), "cited_by_count": d.get("cited_by_count",0)}, indent=2)
     except Exception as e: return _err(e)
 
 @mcp.tool(name="openalex_search_authors", annotations={"readOnlyHint": True, "destructiveHint": False})
